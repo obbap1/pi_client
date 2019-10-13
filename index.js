@@ -1,4 +1,4 @@
-
+  
 /*
 ** The Messaging Queue Telemetry Protocol Client.
 **
@@ -7,23 +7,29 @@
 const config = require('./config');
 const mqtt = require('mqtt');
 const rpio = require('rpio');
+const RPI_DHT_SENSOR = require('rpi-dht-sensor');
 
-rpio.open(11, rpio.INPUT);
+// initialize sensor
+const DHT11 = new RPI_DHT_SENSOR.DHT11(2);
 
-console.log(`Pin 11 is currently ${rpio.read(11) ? 'high' : 'low'}`);
-
-rpio.open(12, rpio.OUTPUT, rpio.LOW);
-
-for(let i = 0; i < 500; i++) {
-	rpio.write(12, rpio.HIGH);
-	rpio.sleep(1);
-
-	rpio.write(12, rpio.LOW);
-	rpio.msleep(500);
-
+//Read the temperature
+function readTemperature(sensor = {}){
+	const read = sensor.read();
+	return read;
 }
 
 
+//Publish message
+function publishMessage(client = {}, message = {}, topic = 'api-engine', time = 86400000 ){
+	setInterval(() => {
+		client.publish(topic, JSON.stringify(message));
+	}, time);
+
+}
+//Open the PIN for message delivery
+rpio.open(12, rpio.OUTPUT, rpio.LOW);
+
+//Initialize client
 const client = mqtt.connect({
 	port: config.mqtt.port,
 	protocol: 'mqtts',
@@ -37,8 +43,8 @@ const client = mqtt.connect({
 });
 
 client.on('connect',function(){
-	client.subscribe('greet');
-	client.publish('greet', 'Hello, Its the PI baby');
+	client.subscribe('api-engine');
+	publishMessage(client,readTemperature(DHT11),'api-engine');
 });
 
 client.on('message', function(topic, message){
